@@ -1,49 +1,9 @@
-#include <Arduino.h>
-#include <ESP32Servo.h>
-
-int ledPin = 21; // Pin for the LED
-
-// Define servo objetcs for controlling each servo motor:
-Servo servo1, servo2, servo3, servo4, servo5;
-
-void setup() {
-  
-  // Initialize the serial communication:
-  Serial.begin(115200);
-
-  // Attach each servo to it's respective GPIO pin:
-  servo1.attach(2);   // Joint 1
-  servo2.attach(4);   // Joint 2
-  servo3.attach(5);   // Joint 3
-  servo4.attach(18);   // Joint 4
-  servo5.attach(19);   // Gripper
-
-  pinMode(ledPin,HIGH); // Set the LED pin ON
-  
-}
-void loop() {
-  
-  // Check if at least 2 bytes are available on the serial buffer:
-  if (Serial.available() >= 2){
-    uint8_t servoID = Serial.read();
-    uint8_t angle = Serial. read();
-    // Control the servos based on the received servo ID and angle:
-    switch (servoID) {
-      case 1:
-        servo1.write(angle);
-        break;
-      case 2:
-        servo2.write(angle);
-        break;
-      case 3:
-        servo3.write(angle);
-        break;
-      case 4:
-        servo4.write(angle);
-        break;
-      case 5:
-        servo5.write(angle);
-        break;
-    }
-  }
-}
+presents IncuBot, an IoT-enabled robotic system designed to automate manual procedures within microbiological incubators,
+thereby enhancing operational efficiency and reducing contamination risks. Manual handling of culture plates in laboratory
+settings is prone to human error, introduces contaminants, and poses biosafety risks. IncuBot addresses these challenges 
+through a custom-designed 4-degree-of-freedom (4-DOF) robotic arm, controlled via a MATLAB application. The methodology 
+involved the 3D parametric design of the arm, development of a custom Printed Circuit Board (PCB) with an ESP32 microcontroller,
+and implementation of a robust control interface that overcomes the limitations of initial vision-based approaches.
+ The results demonstrate a functional prototype capable of precise and repeatable movements (±0.1 mm), successfully automating plate handling tasks.
+ The system's modular, cost-effective design presents a viable alternative to expensive commercial systems, significantly improving laboratory safety,
+ productivity, and the integrity of microbiological research.
