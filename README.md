@@ -1,4 +1,4 @@
-presents IncuBot, an IoT-enabled robotic system designed to automate manual procedures within microbiological incubators,
+IncuBot, an IoT-enabled robotic system designed to automate manual procedures within microbiological incubators,
 thereby enhancing operational efficiency and reducing contamination risks. Manual handling of culture plates in laboratory
 settings is prone to human error, introduces contaminants, and poses biosafety risks. IncuBot addresses these challenges 
 through a custom-designed 4-degree-of-freedom (4-DOF) robotic arm, controlled via a MATLAB application. The methodology 
