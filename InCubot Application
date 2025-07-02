@@ -1,1 +1,478 @@
+classdef robot_control < matlab.apps.AppBase
 
+    % Properties that correspond to app components
+    properties (Access = public)
+        RobotKUKAcontrolAppUIFigure   matlab.ui.Figure
+        Panel_2                       matlab.ui.container.Panel
+        RunButton                     matlab.ui.control.Button
+        SaveButton                    matlab.ui.control.Button
+        ManualpositioncontrolLabel    matlab.ui.control.Label
+        HomeButton                    matlab.ui.control.Button
+        Image2                        matlab.ui.control.Image
+        J3Val                         matlab.ui.control.NumericEditField
+        J2Val                         matlab.ui.control.NumericEditField
+        J1Val                         matlab.ui.control.NumericEditField
+        J4Val                         matlab.ui.control.NumericEditField
+        Joint1Slider                  matlab.ui.control.Slider
+        Joint1SliderLabel             matlab.ui.control.Label
+        Joint2Slider                  matlab.ui.control.Slider
+        Joint2SliderLabel             matlab.ui.control.Label
+        Joint3Slider                  matlab.ui.control.Slider
+        Joint3SliderLabel             matlab.ui.control.Label
+        Joint4Slider                  matlab.ui.control.Slider
+        Joint4SliderLabel             matlab.ui.control.Label
+        GripperVal                    matlab.ui.control.NumericEditField
+        GripperSlider                 matlab.ui.control.Slider
+        GripperSliderLabel            matlab.ui.control.Label
+        ReproducingpositionEditField  matlab.ui.control.NumericEditField
+        ReproducingpositionEditFieldLabel  matlab.ui.control.Label
+        SavedpositionsEditField       matlab.ui.control.NumericEditField
+        SavedpositionsEditFieldLabel  matlab.ui.control.Label
+        ResetButton                   matlab.ui.control.Button
+        DOFKUKARobotLabel             matlab.ui.control.Label
+        Panel                         matlab.ui.container.Panel
+        Image3                        matlab.ui.control.Image
+        V100Label                     matlab.ui.control.Label
+        StatusLabel                   matlab.ui.control.Label
+        OfflineLamp                   matlab.ui.control.Lamp
+        OfflineLampLabel              matlab.ui.control.Label
+        OnlineLamp                    matlab.ui.control.Lamp
+        OnlineLampLabel               matlab.ui.control.Label
+        SerialportList                matlab.ui.control.DropDown
+        SerialportDropDownLabel       matlab.ui.control.Label
+        DisconnectButton              matlab.ui.control.Button
+        ConnectButton                 matlab.ui.control.Button
+        UpdateButton                  matlab.ui.control.Button
+    end
+
+    
+    properties (Access = private)
+        serialObj               % Object for serial comunicataion
+        savedPositions = [];    % Object for saved positions
+    end
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: UpdateButton
+        function UpdateButtonPushed(app, event)
+            app.SerialportList.Items = serialportlist;
+        end
+
+        % Button pushed function: ConnectButton
+        function ConnectButtonPushed(app, event)
+            % Define serial port properties:
+            baudRate = 115200;
+
+            app.serialObj = serialport("COM8", baudRate);
+            app.OnlineLamp.Color = "green";
+            app.OfflineLamp.Color = [0.80, 0.80, 0.80];
+            disp("Succesfully connected to serial port!");
+        end
+
+        % Button pushed function: DisconnectButton
+        function DisconnectButtonPushed(app, event)
+            if ~isempty(app.serialObj) && isvalid(app.serialObj)
+                clear app.serialObj
+                app.OfflineLamp.Color = "red";
+                app.OnlineLamp.Color = [0.80, 0.80, 0.80]; 
+                disp("Disconnected to the serial port");
+            else
+                disp("There's no a serial port connection");
+            end
+        end
+
+        % Value changing function: Joint1Slider
+        function Joint1SliderValueChanging(app, event)
+            servo1 = round(event.Value);
+            app.J1Val.Value = servo1;
+            write(app.serialObj, [1, servo1], "uint8");
+        end
+
+        % Value changing function: Joint2Slider
+        function Joint2SliderValueChanging(app, event)
+            servo2 = 180-round(event.Value);
+            app.J2Val.Value = (servo2-180)*(-1);
+            write(app.serialObj, [2, servo2], "uint8");
+        end
+
+        % Value changing function: Joint3Slider
+        function Joint3SliderValueChanging(app, event)
+            servo3 = round(event.Value);
+            app.J3Val.Value = servo3;
+            write(app.serialObj, [3, servo3], "uint8");
+        end
+
+        % Value changing function: Joint4Slider
+        function Joint4SliderValueChanging(app, event)
+            servo4 = round(event.Value);
+            app.J4Val.Value = servo4;
+            write(app.serialObj, [4, servo4], "uint8");
+        end
+
+        % Value changing function: GripperSlider
+        function GripperSliderValueChanging(app, event)
+            servo5 = round(event.Value);
+            app.GripperVal.Value = servo5;
+            write(app.serialObj, [5, servo5], "uint8");
+        end
+
+        % Button pushed function: HomeButton
+        function HomeButtonPushed(app, event)
+            % Define the Home position of the robot:
+            homePos = [0, 0, 0, 0, 0];
+
+            % Send data to Arduino:
+            for servoID = 1:5
+                write(app.serialObj, [servoID, homePos(servoID)], "uint8");
+                pause(0.2);
+            end
+
+            % Update sliders values:
+            app.Joint1Slider.Value = homePos(1);
+            app.Joint2Slider.Value = homePos(2);
+            app.Joint3Slider.Value = homePos(3);
+            app.Joint4Slider.Value = homePos(4);
+            app.GripperSlider.Value = homePos(5);
+
+            app.J1Val.Value = homePos(1);
+            app.J2Val.Value = homePos(2);
+            app.J3Val.Value = homePos(3);
+            app.J4Val.Value = homePos(4);
+            app.GripperVal.Value = homePos(5);
+        end
+
+        % Button pushed function: SaveButton
+        function SaveButtonPushed(app, event)
+            % Get actual positions of sliders:
+            s1 = round(app.Joint1Slider.Value);
+            s2 = round(app.Joint2Slider.Value);
+            s3 = round(app.Joint3Slider.Value);
+            s4 = round(app.Joint4Slider.Value);
+            s5 = round(app.GripperSlider.Value);
+            currentPos = [s1, 180-s2, s3, s4, s5];
+
+            app.savedPositions = [app.savedPositions; currentPos];
+            disp("Saved position: ");
+            disp(currentPos);
+
+            % Update saved positions counter:
+            numSavedPositions = size(app.savedPositions, 1);
+            app.SavedpositionsEditField.Value = numSavedPositions;
+        end
+
+        % Button pushed function: RunButton
+        function RunButtonPushed(app, event)
+            for i = 1:size(app.savedPositions, 1)
+                currentPos = app.savedPositions(i, :);
+                app.ReproducingpositionEditField.Value = i;
+                % Send data to Arduino:
+                for servoID = 1:5
+                    write(app.serialObj, [servoID, currentPos(servoID)], "uint8");
+                    pause(0.4);
+                end
+                pause(0.5);
+            end
+            disp("Reproduced positions complete!");
+        end
+
+        % Button pushed function: ResetButton
+        function ResetButtonPushed(app, event)
+            % Reset sliders:
+            app.Joint1Slider.Value = 5;
+            app.Joint2Slider.Value = 0;
+            app.Joint3Slider.Value = 30;
+            app.Joint4Slider.Value = 30;
+            app.GripperSlider.Value = 30;
+
+            app.J1Val.Value = 0;
+            app.J2Val.Value = 0;
+            app.J3Val.Value = 0;
+            app.J4Val.Value = 0;
+            app.GripperVal.Value = 0;
+
+            % Reset edit fields:
+            app.SavedpositionsEditField.Value = 0;
+            app.ReproducingpositionEditField.Value = 0;
+
+            % Clean positions array:
+            app.savedPositions = [];
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Get the file path for locating images
+            pathToMLAPP = fileparts(mfilename('fullpath'));
+
+            % Create RobotKUKAcontrolAppUIFigure and hide until all components are created
+            app.RobotKUKAcontrolAppUIFigure = uifigure('Visible', 'off');
+            app.RobotKUKAcontrolAppUIFigure.Color = [0.902 0.902 0.902];
+            app.RobotKUKAcontrolAppUIFigure.Position = [100 100 699 519];
+            app.RobotKUKAcontrolAppUIFigure.Name = 'Robot KUKA control App';
+
+            % Create Panel
+            app.Panel = uipanel(app.RobotKUKAcontrolAppUIFigure);
+            app.Panel.Position = [15 389 672 85];
+
+            % Create UpdateButton
+            app.UpdateButton = uibutton(app.Panel, 'push');
+            app.UpdateButton.ButtonPushedFcn = createCallbackFcn(app, @UpdateButtonPushed, true);
+            app.UpdateButton.Position = [174 12 100 23];
+            app.UpdateButton.Text = 'Update';
+
+            % Create ConnectButton
+            app.ConnectButton = uibutton(app.Panel, 'push');
+            app.ConnectButton.ButtonPushedFcn = createCallbackFcn(app, @ConnectButtonPushed, true);
+            app.ConnectButton.Position = [296 47 100 23];
+            app.ConnectButton.Text = 'Connect';
+
+            % Create DisconnectButton
+            app.DisconnectButton = uibutton(app.Panel, 'push');
+            app.DisconnectButton.ButtonPushedFcn = createCallbackFcn(app, @DisconnectButtonPushed, true);
+            app.DisconnectButton.Position = [296 12 100 23];
+            app.DisconnectButton.Text = 'Disconnect';
+
+            % Create SerialportDropDownLabel
+            app.SerialportDropDownLabel = uilabel(app.Panel);
+            app.SerialportDropDownLabel.HorizontalAlignment = 'right';
+            app.SerialportDropDownLabel.Position = [99 47 60 22];
+            app.SerialportDropDownLabel.Text = 'Serial port';
+
+            % Create SerialportList
+            app.SerialportList = uidropdown(app.Panel);
+            app.SerialportList.Items = {'COM?'};
+            app.SerialportList.Position = [174 47 100 22];
+            app.SerialportList.Value = 'COM?';
+
+            % Create OnlineLampLabel
+            app.OnlineLampLabel = uilabel(app.Panel);
+            app.OnlineLampLabel.HorizontalAlignment = 'right';
+            app.OnlineLampLabel.Position = [581 48 39 22];
+            app.OnlineLampLabel.Text = 'Online';
+
+            % Create OnlineLamp
+            app.OnlineLamp = uilamp(app.Panel);
+            app.OnlineLamp.Position = [635 48 20 20];
+            app.OnlineLamp.Color = [0.8 0.8 0.8];
+
+            % Create OfflineLampLabel
+            app.OfflineLampLabel = uilabel(app.Panel);
+            app.OfflineLampLabel.HorizontalAlignment = 'right';
+            app.OfflineLampLabel.Position = [582 13 39 22];
+            app.OfflineLampLabel.Text = 'Offline';
+
+            % Create OfflineLamp
+            app.OfflineLamp = uilamp(app.Panel);
+            app.OfflineLamp.Position = [636 13 20 20];
+            app.OfflineLamp.Color = [0.8 0.8 0.8];
+
+            % Create StatusLabel
+            app.StatusLabel = uilabel(app.Panel);
+            app.StatusLabel.FontWeight = 'bold';
+            app.StatusLabel.Position = [530 48 45 22];
+            app.StatusLabel.Text = 'Status:';
+
+            % Create V100Label
+            app.V100Label = uilabel(app.Panel);
+            app.V100Label.HorizontalAlignment = 'center';
+            app.V100Label.FontWeight = 'bold';
+            app.V100Label.Position = [1 1 71 22];
+            app.V100Label.Text = 'V 1.0.0';
+
+            % Create Image3
+            app.Image3 = uiimage(app.Panel);
+            app.Image3.Position = [8 13 58 82];
+            app.Image3.ImageSource = fullfile(pathToMLAPP, 'robotic_arm.png');
+
+            % Create DOFKUKARobotLabel
+            app.DOFKUKARobotLabel = uilabel(app.RobotKUKAcontrolAppUIFigure);
+            app.DOFKUKARobotLabel.HorizontalAlignment = 'center';
+            app.DOFKUKARobotLabel.FontSize = 18;
+            app.DOFKUKARobotLabel.FontWeight = 'bold';
+            app.DOFKUKARobotLabel.Position = [267 483 167 24];
+            app.DOFKUKARobotLabel.Text = '4DOF KUKA Robot';
+
+            % Create Panel_2
+            app.Panel_2 = uipanel(app.RobotKUKAcontrolAppUIFigure);
+            app.Panel_2.Position = [15 13 672 361];
+
+            % Create ResetButton
+            app.ResetButton = uibutton(app.Panel_2, 'push');
+            app.ResetButton.ButtonPushedFcn = createCallbackFcn(app, @ResetButtonPushed, true);
+            app.ResetButton.Position = [18 16 100 23];
+            app.ResetButton.Text = 'Reset';
+
+            % Create SavedpositionsEditFieldLabel
+            app.SavedpositionsEditFieldLabel = uilabel(app.Panel_2);
+            app.SavedpositionsEditFieldLabel.HorizontalAlignment = 'right';
+            app.SavedpositionsEditFieldLabel.Position = [476 50 94 22];
+            app.SavedpositionsEditFieldLabel.Text = 'Saved positions:';
+
+            % Create SavedpositionsEditField
+            app.SavedpositionsEditField = uieditfield(app.Panel_2, 'numeric');
+            app.SavedpositionsEditField.Position = [585 50 67 22];
+
+            % Create ReproducingpositionEditFieldLabel
+            app.ReproducingpositionEditFieldLabel = uilabel(app.Panel_2);
+            app.ReproducingpositionEditFieldLabel.HorizontalAlignment = 'right';
+            app.ReproducingpositionEditFieldLabel.Position = [447 16 123 22];
+            app.ReproducingpositionEditFieldLabel.Text = 'Reproducing position:';
+
+            % Create ReproducingpositionEditField
+            app.ReproducingpositionEditField = uieditfield(app.Panel_2, 'numeric');
+            app.ReproducingpositionEditField.Position = [585 16 67 22];
+
+            % Create GripperSliderLabel
+            app.GripperSliderLabel = uilabel(app.Panel_2);
+            app.GripperSliderLabel.HorizontalAlignment = 'right';
+            app.GripperSliderLabel.Position = [12 290 45 22];
+            app.GripperSliderLabel.Text = 'Gripper';
+
+            % Create GripperSlider
+            app.GripperSlider = uislider(app.Panel_2);
+            app.GripperSlider.Limits = [0 90];
+            app.GripperSlider.ValueChangingFcn = createCallbackFcn(app, @GripperSliderValueChanging, true);
+            app.GripperSlider.Position = [78 299 150 3];
+
+            % Create GripperVal
+            app.GripperVal = uieditfield(app.Panel_2, 'numeric');
+            app.GripperVal.HorizontalAlignment = 'center';
+            app.GripperVal.Position = [261 290 67 22];
+
+            % Create Joint4SliderLabel
+            app.Joint4SliderLabel = uilabel(app.Panel_2);
+            app.Joint4SliderLabel.HorizontalAlignment = 'right';
+            app.Joint4SliderLabel.Position = [16 238 41 22];
+            app.Joint4SliderLabel.Text = 'Joint 4';
+
+            % Create Joint4Slider
+            app.Joint4Slider = uislider(app.Panel_2);
+            app.Joint4Slider.Limits = [30 150];
+            app.Joint4Slider.ValueChangingFcn = createCallbackFcn(app, @Joint4SliderValueChanging, true);
+            app.Joint4Slider.Position = [78 247 150 3];
+            app.Joint4Slider.Value = 30;
+
+            % Create Joint3SliderLabel
+            app.Joint3SliderLabel = uilabel(app.Panel_2);
+            app.Joint3SliderLabel.HorizontalAlignment = 'right';
+            app.Joint3SliderLabel.Position = [16 185 41 22];
+            app.Joint3SliderLabel.Text = 'Joint 3';
+
+            % Create Joint3Slider
+            app.Joint3Slider = uislider(app.Panel_2);
+            app.Joint3Slider.Limits = [30 120];
+            app.Joint3Slider.ValueChangingFcn = createCallbackFcn(app, @Joint3SliderValueChanging, true);
+            app.Joint3Slider.Position = [78 194 150 3];
+            app.Joint3Slider.Value = 30;
+
+            % Create Joint2SliderLabel
+            app.Joint2SliderLabel = uilabel(app.Panel_2);
+            app.Joint2SliderLabel.HorizontalAlignment = 'right';
+            app.Joint2SliderLabel.Position = [16 135 41 22];
+            app.Joint2SliderLabel.Text = 'Joint 2';
+
+            % Create Joint2Slider
+            app.Joint2Slider = uislider(app.Panel_2);
+            app.Joint2Slider.Limits = [0 180];
+            app.Joint2Slider.ValueChangingFcn = createCallbackFcn(app, @Joint2SliderValueChanging, true);
+            app.Joint2Slider.Position = [78 144 150 3];
+
+            % Create Joint1SliderLabel
+            app.Joint1SliderLabel = uilabel(app.Panel_2);
+            app.Joint1SliderLabel.HorizontalAlignment = 'right';
+            app.Joint1SliderLabel.Position = [16 81 41 22];
+            app.Joint1SliderLabel.Text = 'Joint 1';
+
+            % Create Joint1Slider
+            app.Joint1Slider = uislider(app.Panel_2);
+            app.Joint1Slider.Limits = [5 175];
+            app.Joint1Slider.ValueChangingFcn = createCallbackFcn(app, @Joint1SliderValueChanging, true);
+            app.Joint1Slider.Position = [78 90 150 3];
+            app.Joint1Slider.Value = 10;
+
+            % Create J4Val
+            app.J4Val = uieditfield(app.Panel_2, 'numeric');
+            app.J4Val.HorizontalAlignment = 'center';
+            app.J4Val.Position = [261 237 67 22];
+
+            % Create J1Val
+            app.J1Val = uieditfield(app.Panel_2, 'numeric');
+            app.J1Val.HorizontalAlignment = 'center';
+            app.J1Val.Position = [261 80 67 22];
+
+            % Create J2Val
+            app.J2Val = uieditfield(app.Panel_2, 'numeric');
+            app.J2Val.HorizontalAlignment = 'center';
+            app.J2Val.Position = [261 134 67 22];
+
+            % Create J3Val
+            app.J3Val = uieditfield(app.Panel_2, 'numeric');
+            app.J3Val.HorizontalAlignment = 'center';
+            app.J3Val.Position = [261 184 67 22];
+
+            % Create Image2
+            app.Image2 = uiimage(app.Panel_2);
+            app.Image2.Position = [350 39 317 322];
+            app.Image2.ImageSource = 'InCuBot (2).png';
+
+            % Create HomeButton
+            app.HomeButton = uibutton(app.Panel_2, 'push');
+            app.HomeButton.ButtonPushedFcn = createCallbackFcn(app, @HomeButtonPushed, true);
+            app.HomeButton.Position = [554 320 100 23];
+            app.HomeButton.Text = 'Home';
+
+            % Create ManualpositioncontrolLabel
+            app.ManualpositioncontrolLabel = uilabel(app.Panel_2);
+            app.ManualpositioncontrolLabel.HorizontalAlignment = 'center';
+            app.ManualpositioncontrolLabel.FontWeight = 'bold';
+            app.ManualpositioncontrolLabel.Position = [117 328 140 22];
+            app.ManualpositioncontrolLabel.Text = 'Manual position control';
+
+            % Create SaveButton
+            app.SaveButton = uibutton(app.Panel_2, 'push');
+            app.SaveButton.ButtonPushedFcn = createCallbackFcn(app, @SaveButtonPushed, true);
+            app.SaveButton.Position = [549 127 100 23];
+            app.SaveButton.Text = 'Save';
+
+            % Create RunButton
+            app.RunButton = uibutton(app.Panel_2, 'push');
+            app.RunButton.ButtonPushedFcn = createCallbackFcn(app, @RunButtonPushed, true);
+            app.RunButton.Position = [549 94 100 23];
+            app.RunButton.Text = 'Run';
+
+            % Show the figure after all components are created
+            app.RobotKUKAcontrolAppUIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = robot_control
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.RobotKUKAcontrolAppUIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.RobotKUKAcontrolAppUIFigure)
+        end
+    end
+end
